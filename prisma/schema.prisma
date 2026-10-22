@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Workflow {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(100)
+  nodes Node[] @relation("workflowNodes")
+}
+
+enum NodeStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  SUCCESS
+  DEAD
+  RETRY_WAIT
+  SKIPPED
+}
+
+model Node {
+  id String @id @default(uuid()) @db.Uuid
+  type String
+  // status NodeStatus @default(PENDING) note this cant be here because a single node can be executed many times and each execution must be recorded
+  workflowId String @db.Uuid // the actual db field that we want to be foreign key
+  workflow Workflow @relation("workflowNodes", fields: [workflowId], references: [id])
+  outEdges Edge[] @relation("outSource")
+  inEdges Edge[] @relation("inTarget")
+
+}
+
+model Edge {
+  id String @id @default(uuid()) @db.Uuid
+  source String @db.Uuid
+  target String @db.Uuid
+  sourceNode Node @relation("outSource", fields: [source], references: [id])
+  targetNode Node @relation("inTarget", fields: [target], references: [id])
+}
