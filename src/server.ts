@@ -1,8 +1,10 @@
 import express from 'express';
 import dotenv from 'dotenv';
 
-import type { Workflow } from './workflow.js';
-import { createWorkflow } from './workflow.js';
+import type { Workflow, Node, Edge } from './generated/prisma/client.js';
+import { createWorkflow } from './repositories/workflowRepo.js';
+import { createNode } from './repositories/nodeRepo.js';
+import { createEdge } from './repositories/edgeRepo.js';
 
 dotenv.config()
 
@@ -17,7 +19,7 @@ app.get("/", (_req, res) => {
     });
 })
 
-app.post('/api/workflow/create', (req, res) => {
+app.post('/api/workflow/create', async (req, res) => {
     const { name } = req.body;
 
     if (typeof name !== "string"){
@@ -25,10 +27,30 @@ app.post('/api/workflow/create', (req, res) => {
             message: `Invalid request: 'name' must be a string.`
         });
     }
-    else {
-        const newWorkflow: Workflow = createWorkflow(name);
-        res.status(201).json(newWorkflow);
-    }
+    // more validations like these maybe on string length and so on..
+
+    console.time("Repository call");
+    
+    const newWorkflow: Workflow = await createWorkflow(name);
+
+    console.timeEnd("Repository call");
+    return res.status(201).json(newWorkflow);
+})
+
+app.post('/api/node/create', async (req, res) => {
+    const { type, subType, workflowId } = req.body;
+
+    // some validations first then,
+    const newNode: Node = await createNode(type, subType, workflowId);
+    return res.status(201).json(newNode);
+})
+
+app.post('/api/edge/create', async (req, res) => {
+    const { source, target } = req.body;
+
+    // also some validations
+    const newEdge: Edge = await createEdge(source, target);
+    return res.status(201).json(newEdge);
 })
 
 app.listen(PORT, () => {

@@ -28,15 +28,29 @@ enum NodeStatus {
   SKIPPED
 }
 
+enum NodeType {
+  TRIGGER
+  HTTP_REQUEST
+  TRANSFORM
+  CONDITION
+  DELAY
+}
+
+enum NodeSubType {
+  MANUAL_TRIGGER
+  WEBHOOK_TRIGGER
+  CRON_TRIGGER
+}
+
 model Node {
   id String @id @default(uuid()) @db.Uuid
-  type String
+  type NodeType
+  subType NodeSubType?
   // status NodeStatus @default(PENDING) note this cant be here because a single node can be executed many times and each execution must be recorded
   workflowId String @db.Uuid // the actual db field that we want to be foreign key
   workflow Workflow @relation("workflowNodes", fields: [workflowId], references: [id])
   outEdges Edge[] @relation("outSource")
   inEdges Edge[] @relation("inTarget")
-
 }
 
 model Edge {
@@ -45,4 +59,6 @@ model Edge {
   target String @db.Uuid
   sourceNode Node @relation("outSource", fields: [source], references: [id])
   targetNode Node @relation("inTarget", fields: [target], references: [id])
+
+  @@unique([source, target])
 }
