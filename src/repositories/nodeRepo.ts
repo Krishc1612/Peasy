@@ -3,7 +3,7 @@ import type { Node, NodeSubType, NodeType, Workflow } from '../generated/prisma/
 
 export async function createNode(
     type: NodeType, 
-    subType: NodeSubType | null, 
+    subType: NodeSubType | undefined, 
     workflowId: Workflow["id"], 
 ) {
     const workflowExists: Workflow | null = await prisma.workflow.findUnique({

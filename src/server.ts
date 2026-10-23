@@ -5,6 +5,9 @@ import type { Workflow, Node, Edge } from './generated/prisma/client.js';
 import { createWorkflow } from './repositories/workflowRepo.js';
 import { createNode } from './repositories/nodeRepo.js';
 import { createEdge } from './repositories/edgeRepo.js';
+import { createWorkflowSchema } from './schemas/workflow.schema.js';
+import { createNodeSchema } from './schemas/node.schema.js';
+import { createEdgeSchema } from './schemas/edge.schema.js';
 
 dotenv.config()
 
@@ -20,17 +23,15 @@ app.get("/", (_req, res) => {
 })
 
 app.post('/api/workflow/create', async (req, res) => {
-    const { name } = req.body;
+    const result = createWorkflowSchema.safeParse(req.body);
 
-    if (typeof name !== "string"){
+    if (!result.success){
         return res.status(400).json({
-            message: `Invalid request: 'name' must be a string.`
+            errors: result.error.issues
         });
     }
-    // more validations like these maybe on string length and so on..
 
-    console.time("Repository call");
-    
+    const { name } = result.data;    
     const newWorkflow: Workflow = await createWorkflow(name);
 
     console.timeEnd("Repository call");
@@ -38,7 +39,15 @@ app.post('/api/workflow/create', async (req, res) => {
 })
 
 app.post('/api/node/create', async (req, res) => {
-    const { type, subType, workflowId } = req.body;
+    const result = createNodeSchema.safeParse(req.body);
+
+    if (!result.success){
+        return res.status(400).json({
+            errors: result.error.issues
+        });
+    }
+
+    const { type, subType, workflowId } = result.data;
 
     // some validations first then,
     const newNode: Node = await createNode(type, subType, workflowId);
@@ -46,7 +55,15 @@ app.post('/api/node/create', async (req, res) => {
 })
 
 app.post('/api/edge/create', async (req, res) => {
-    const { source, target } = req.body;
+    const result = createEdgeSchema.safeParse(req.body);
+
+    if (!result.success){
+        return res.status(400).json({
+            errors: result.error.issues
+        });
+    }
+
+    const { source, target } = result.data;
 
     // also some validations
     const newEdge: Edge = await createEdge(source, target);

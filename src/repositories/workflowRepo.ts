@@ -2,8 +2,7 @@ import { prisma } from '../db/db.js'
 import type { Workflow } from '../generated/prisma/client.js';
 
 export async function createWorkflow(name: string): Promise<Workflow> {
-    console.time("Prisma create");
-
+    // console.time("Prisma create");
     const newWorkflow: Workflow = await prisma.workflow.create({
         data: { name }
     })
