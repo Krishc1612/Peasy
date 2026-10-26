@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  workflows Workflow[]
+}
+
+model Workflow {
+  id               String   @id @default(uuid())
+  userId           String
+  name             String
+  graphJson        Json     @default("{\"nodes\":[],\"edges\":[]}") // editable draft
+  isActive         Boolean  @default(false) // controls webhook/cron
+  webhookTokenHash String? // sha256 of the URL token, shown to the user once
+  webhookSecret    String? // HMAC secret (encrypt later with the vault)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions   WorkflowVersion[]
+  executions Execution[]
+
+  @@index([userId]) // makes the queries related to manipulating workflows involving userId faster
+}
+
+model WorkflowVersion {
+  id         String   @id @default(uuid())
+  workflowId String
+  version    Int
+  hash       String // sha256 of canonical graph (ui fields stripped)
+  graphJson  Json // frozen, never updated
+  createdAt  DateTime @default(now())
+
+  workflow   Workflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executions Execution[]
+
+  @@unique([workflowId, version])
+  @@unique([workflowId, hash])
+}
+
+model Execution {
+  id             String   @id @default(uuid())
+  workflowId     String
+  versionId      String
+  status         String // QUEUED RUNNING SUCCEEDED FAILED
+  idempotencyKey String
+  trigger        String // manual webhook cron
+  payload        Json?
+  replayOfId     String?
+  createdAt      DateTime @default(now())
+
+  workflow Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  version  WorkflowVersion  @relation(fields: [versionId], references: [id])
+  replayOf Execution?       @relation("Replay", fields: [replayOfId], references: [id])
+  replays  Execution[]      @relation("Replay")
+  nodes    NodeExecution[]
+  events   ExecutionEvent[]
+
+  @@unique([workflowId, idempotencyKey])
+  @@index([workflowId, createdAt])
+  @@index([versionId])
+}
+
+model NodeExecution {
+  id             String    @id @default(uuid())
+  executionId    String
+  nodeId         String // string pointing into the graph JSON, not a FK
+  status         String // PENDING QUEUED RUNNING RETRY_WAIT SUCCESS DEAD SKIPPED
+  pendingParents Int
+  childrenIds    String[]
+  input          Json?
+  output         Json?
+  error          String?
+  attempt        Int       @default(0)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, nodeId])
+  @@index([executionId])
+}
+
+model ExecutionEvent {
+  id          BigInt   @id @default(autoincrement())
+  executionId String
+  type        String
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, id])
+}
