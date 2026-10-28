@@ -4,8 +4,9 @@ import { Prisma } from './generated/prisma/client.js';
 
 import { createWorkflowSchema, workflowQuerySchema } from './schemas/workflow.schema.js';
 import { createWorkflow, deleteWorkflow, getWorkflowById, getWorkflows, patchWorkflow, updateWorkflowGraph } from './repositories/workflowRepo.js';
-import { uuidSchema } from './schemas/common.schema.js';
+import { idempotencyKeySchema, uuidSchema } from './schemas/common.schema.js';
 import { graphSchema } from './schemas/graph.schema.js';
+import { executeWorkflow } from './services/executeWorkflow.service.js';
 
 dotenv.config()
 
@@ -210,6 +211,39 @@ app.put('/api/workflows/:id/graph', async (req, res) => {
         });
     }
 });
+
+app.post('/api/workflows/:id/execute', async (req, res) => { // manual trigger execution
+    const isUuid = uuidSchema.safeParse(req.params);
+
+    if (!isUuid.success){
+        return res.status(400).json({
+            error: isUuid.error.issues
+        });
+    }
+
+    const userId = "03e43d4b-4f1c-497b-aafe-e9c8f8dbec2d";
+    const workflowId = isUuid.data.id;
+    const idempotencyKey = idempotencyKeySchema.safeParse(req.get("Idempotency-Key"));
+    
+    if (!idempotencyKey.success){
+        return res.status(400).json({
+            error: idempotencyKey.error.issues
+        });
+    }
+ 
+    try {
+        const newExecution = await executeWorkflow(workflowId, userId, idempotencyKey.data, "manual");
+
+        return res.status(200).json({
+            message: "OK"
+        });
+    } catch (error){
+        console.error(error);
+        res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+})
 
 app.listen(PORT, () => {
     console.log(`Server is live on PORT: ${PORT}`);
